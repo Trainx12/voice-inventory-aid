@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { listCelulares, marcarVendido, eliminarCelular, getMyRole } from "@/lib/celulares.functions";
+import { listCelulares, marcarVendido, eliminarCelular } from "@/lib/celulares.functions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,13 +25,10 @@ function InventarioPage() {
   const list = useServerFn(listCelulares);
   const sell = useServerFn(marcarVendido);
   const del = useServerFn(eliminarCelular);
-  const role = useServerFn(getMyRole);
   const qc = useQueryClient();
   const [q, setQ] = useState("");
 
   const { data, isLoading } = useQuery({ queryKey: ["celulares"], queryFn: () => list() });
-  const { data: roleData } = useQuery({ queryKey: ["my-role"], queryFn: () => role() });
-  const isAdmin = roleData?.isAdmin ?? false;
 
   const items = (data ?? []).filter((c) => {
     if (!q.trim()) return true;
@@ -50,7 +47,7 @@ function InventarioPage() {
     try {
       await del({ data: { id } });
       qc.invalidateQueries({ queryKey: ["celulares"] });
-      toast.success("Eliminado");
+      toast.success("Movido a la papelera");
     } catch (e: any) { toast.error(e.message); }
   };
 
@@ -105,23 +102,21 @@ function InventarioPage() {
                         <Button size="sm" variant="outline" onClick={() => toggleSell(c.id, c.vendido)}>
                           {c.vendido ? <RotateCcw className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                         </Button>
-                        {isAdmin && (
-                          <AlertDialog>
+                        <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button size="sm" variant="ghost"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>¿Eliminar este celular?</AlertDialogTitle>
-                                <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
+                                <AlertDialogTitle>¿Mover a la papelera?</AlertDialogTitle>
+                                <AlertDialogDescription>Podrás restaurarlo desde la sección Papelera.</AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => remove(c.id)}>Eliminar</AlertDialogAction>
+                                <AlertDialogAction onClick={() => remove(c.id)}>Mover</AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
-                        )}
                       </td>
                     </tr>
                   ))}
