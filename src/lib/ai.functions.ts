@@ -1,16 +1,26 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { generateText, Output } from "ai";
+import { generateText } from "ai";
 import { z } from "zod";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 
 const VozSchema = z.object({
-  marca: z.string(),
-  modelo: z.string(),
-  precio_compra: z.number(),
-  problemas: z.string(),
-  observaciones: z.string(),
+  marca: z.string().optional().default(""),
+  modelo: z.string().optional().default(""),
+  precio_compra: z.number().optional().default(0),
+  problemas: z.string().optional().default(""),
+  observaciones: z.string().optional().default(""),
 });
+
+function extractJSON(raw: string): unknown {
+  let cleaned = raw.replace(/^```json\s*/im, "").replace(/^```\s*/im, "").replace(/```\s*$/im, "").trim();
+  if (!cleaned.startsWith("{")) {
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+    if (start !== -1 && end > start) cleaned = cleaned.slice(start, end + 1);
+  }
+  return JSON.parse(cleaned);
+}
 
 export const interpretarVoz = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -21,14 +31,18 @@ export const interpretarVoz = createServerFn({ method: "POST" })
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("Falta LOVABLE_API_KEY");
     const gateway = createLovableAiGatewayProvider(key);
-    const { experimental_output } = await generateText({
+    const { text } = await generateText({
       model: gateway("google/gemini-3-flash-preview"),
-      experimental_output: Output.object({ schema: VozSchema }),
       system:
-        "Extraés datos de un celular usado a partir de descripciones en español rioplatense. Los precios pueden venir como '200 mil', '200000', '200k', '1,5 millones'. Convertilo a número entero. Si no hay un dato, devolvé string vacío o 0. Marcas comunes: Samsung, Apple/iPhone, Motorola, Xiaomi, Huawei, LG.",
+        "Extraés datos de un celular usado a partir de descripciones en español rioplatense. Los precios pueden venir como '200 mil', '200000', '200k', '1,5 millones'. Convertilo a número entero. Si falta un dato, devolvé string vacío o 0. Marcas comunes: Samsung, Apple/iPhone, Motorola, Xiaomi, Huawei, LG.\n\nRespondé SOLO con un objeto JSON válido con estas claves exactas: marca (string), modelo (string), precio_compra (number), problemas (string), observaciones (string). Sin texto adicional, sin markdown.",
       prompt: data.texto,
     });
-    return experimental_output;
+    try {
+      const parsed = extractJSON(text);
+      return VozSchema.parse(parsed);
+    } catch {
+      return { marca: "", modelo: "", precio_compra: 0, problemas: "", observaciones: text };
+    }
   });
 
 export const consultaAsistente = createServerFn({ method: "POST" })
