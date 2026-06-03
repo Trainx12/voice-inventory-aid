@@ -5,12 +5,23 @@ import { z } from "zod";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 
 const VozSchema = z.object({
+  transcripcion: z.string().optional().default(""),
   marca: z.string().optional().default(""),
   modelo: z.string().optional().default(""),
   precio_compra: z.number().optional().default(0),
   problemas: z.string().optional().default(""),
   observaciones: z.string().optional().default(""),
 });
+
+const VozInputSchema = z
+  .object({
+    texto: z.string().max(2000).optional().default(""),
+    audioBase64: z.string().max(12_000_000).optional(),
+    mediaType: z.enum(["audio/wav", "audio/mp3", "audio/mpeg"]).optional().default("audio/wav"),
+  })
+  .refine((data) => data.texto.trim().length >= 2 || (data.audioBase64?.length ?? 0) > 1000, {
+    message: "Decí algo o escribí una descripción antes de interpretar.",
+  });
 
 function extractJSON(raw: string): unknown {
   let cleaned = raw.replace(/^```json\s*/im, "").replace(/^```\s*/im, "").replace(/```\s*$/im, "").trim();
@@ -24,24 +35,45 @@ function extractJSON(raw: string): unknown {
 
 export const interpretarVoz = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
-    z.object({ texto: z.string().min(2).max(2000) }).parse(input),
-  )
+  .inputValidator((input: unknown) => VozInputSchema.parse(input))
   .handler(async ({ data }) => {
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("Falta LOVABLE_API_KEY");
     const gateway = createLovableAiGatewayProvider(key);
-    const { text } = await generateText({
-      model: gateway("google/gemini-3-flash-preview"),
-      system:
-        "Extraés datos de un celular usado a partir de descripciones en español rioplatense. Los precios pueden venir como '200 mil', '200000', '200k', '1,5 millones'. Convertilo a número entero. Si falta un dato, devolvé string vacío o 0. Marcas comunes: Samsung, Apple/iPhone, Motorola, Xiaomi, Huawei, LG.\n\nRespondé SOLO con un objeto JSON válido con estas claves exactas: marca (string), modelo (string), precio_compra (number), problemas (string), observaciones (string). Sin texto adicional, sin markdown.",
-      prompt: data.texto,
-    });
+    const instruction =
+      "Extraé datos de un celular usado a partir de voz o texto en español rioplatense. Los precios pueden venir como '200 mil', '200000', '200k', '1,5 millones'. Convertilo a número entero. Si falta un dato, devolvé string vacío o 0. Marcas comunes: Samsung, Apple/iPhone, Motorola, Xiaomi, Huawei, LG.\n\nRespondé SOLO con un objeto JSON válido con estas claves exactas: transcripcion (string), marca (string), modelo (string), precio_compra (number), problemas (string), observaciones (string). Sin texto adicional, sin markdown.";
+
+    const { text } = data.audioBase64
+      ? await generateText({
+          model: gateway("google/gemini-3-flash-preview"),
+          system: instruction,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: `Transcribí este audio y extraé los datos del celular.${data.texto.trim() ? ` Texto detectado por el navegador: ${data.texto.trim()}` : ""}`,
+                },
+                {
+                  type: "file",
+                  mediaType: data.mediaType,
+                  data: data.audioBase64,
+                },
+              ],
+            },
+          ],
+        })
+      : await generateText({
+          model: gateway("google/gemini-3-flash-preview"),
+          system: instruction,
+          prompt: data.texto,
+        });
     try {
       const parsed = extractJSON(text);
       return VozSchema.parse(parsed);
     } catch {
-      return { marca: "", modelo: "", precio_compra: 0, problemas: "", observaciones: text };
+      return { transcripcion: data.texto || text, marca: "", modelo: "", precio_compra: 0, problemas: "", observaciones: text };
     }
   });
 
