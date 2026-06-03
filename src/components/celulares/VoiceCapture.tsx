@@ -172,7 +172,7 @@ export function VoiceCapture({ onParsed }: { onParsed: (p: Parsed) => void }) {
     }
   };
   const stop = () => {
-    recRef.current?.stop?.();
+    try { recRef.current?.stop?.(); } catch { /* el reconocimiento del navegador puede haberse cerrado solo */ }
     recRef.current = null;
     if (mediaRef.current?.state === "recording") mediaRef.current.stop();
   };
