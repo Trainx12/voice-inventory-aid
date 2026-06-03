@@ -15,6 +15,7 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedPapeleraRouteImport } from './routes/_authenticated/papelera'
 import { Route as AuthenticatedNuevoRouteImport } from './routes/_authenticated/nuevo'
 import { Route as AuthenticatedInventarioRouteImport } from './routes/_authenticated/inventario'
+import { Route as AuthenticatedHistorialRouteImport } from './routes/_authenticated/historial'
 import { Route as AuthenticatedAsistenteRouteImport } from './routes/_authenticated/asistente'
 
 const AuthRoute = AuthRouteImport.update({
@@ -46,6 +47,11 @@ const AuthenticatedInventarioRoute = AuthenticatedInventarioRouteImport.update({
   path: '/inventario',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedHistorialRoute = AuthenticatedHistorialRouteImport.update({
+  id: '/historial',
+  path: '/historial',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAsistenteRoute = AuthenticatedAsistenteRouteImport.update({
   id: '/asistente',
   path: '/asistente',
@@ -56,6 +62,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRoute
   '/asistente': typeof AuthenticatedAsistenteRoute
+  '/historial': typeof AuthenticatedHistorialRoute
   '/inventario': typeof AuthenticatedInventarioRoute
   '/nuevo': typeof AuthenticatedNuevoRoute
   '/papelera': typeof AuthenticatedPapeleraRoute
@@ -63,6 +70,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/asistente': typeof AuthenticatedAsistenteRoute
+  '/historial': typeof AuthenticatedHistorialRoute
   '/inventario': typeof AuthenticatedInventarioRoute
   '/nuevo': typeof AuthenticatedNuevoRoute
   '/papelera': typeof AuthenticatedPapeleraRoute
@@ -73,6 +81,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/asistente': typeof AuthenticatedAsistenteRoute
+  '/_authenticated/historial': typeof AuthenticatedHistorialRoute
   '/_authenticated/inventario': typeof AuthenticatedInventarioRoute
   '/_authenticated/nuevo': typeof AuthenticatedNuevoRoute
   '/_authenticated/papelera': typeof AuthenticatedPapeleraRoute
@@ -84,16 +93,25 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/asistente'
+    | '/historial'
     | '/inventario'
     | '/nuevo'
     | '/papelera'
   fileRoutesByTo: FileRoutesByTo
-  to: '/auth' | '/asistente' | '/inventario' | '/nuevo' | '/papelera' | '/'
+  to:
+    | '/auth'
+    | '/asistente'
+    | '/historial'
+    | '/inventario'
+    | '/nuevo'
+    | '/papelera'
+    | '/'
   id:
     | '__root__'
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/asistente'
+    | '/_authenticated/historial'
     | '/_authenticated/inventario'
     | '/_authenticated/nuevo'
     | '/_authenticated/papelera'
@@ -149,6 +167,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInventarioRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/historial': {
+      id: '/_authenticated/historial'
+      path: '/historial'
+      fullPath: '/historial'
+      preLoaderRoute: typeof AuthenticatedHistorialRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/asistente': {
       id: '/_authenticated/asistente'
       path: '/asistente'
@@ -161,6 +186,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAsistenteRoute: typeof AuthenticatedAsistenteRoute
+  AuthenticatedHistorialRoute: typeof AuthenticatedHistorialRoute
   AuthenticatedInventarioRoute: typeof AuthenticatedInventarioRoute
   AuthenticatedNuevoRoute: typeof AuthenticatedNuevoRoute
   AuthenticatedPapeleraRoute: typeof AuthenticatedPapeleraRoute
@@ -169,6 +195,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAsistenteRoute: AuthenticatedAsistenteRoute,
+  AuthenticatedHistorialRoute: AuthenticatedHistorialRoute,
   AuthenticatedInventarioRoute: AuthenticatedInventarioRoute,
   AuthenticatedNuevoRoute: AuthenticatedNuevoRoute,
   AuthenticatedPapeleraRoute: AuthenticatedPapeleraRoute,
