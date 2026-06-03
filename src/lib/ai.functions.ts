@@ -43,36 +43,32 @@ export const interpretarVoz = createServerFn({ method: "POST" })
     const instruction =
       "Extraé datos de un celular usado a partir de voz o texto en español rioplatense. Los precios pueden venir como '200 mil', '200000', '200k', '1,5 millones'. Convertilo a número entero. Si falta un dato, devolvé string vacío o 0. Marcas comunes: Samsung, Apple/iPhone, Motorola, Xiaomi, Huawei, LG.\n\nRespondé SOLO con un objeto JSON válido con estas claves exactas: transcripcion (string), marca (string), modelo (string), precio_compra (number), problemas (string), observaciones (string). Sin texto adicional, sin markdown.";
 
-    const request = data.audioBase64
-      ? {
+    const { text } = data.audioBase64
+      ? await generateText({
           model: gateway("google/gemini-3-flash-preview"),
           system: instruction,
           messages: [
             {
-              role: "user" as const,
+              role: "user",
               content: [
                 {
-                  type: "text" as const,
+                  type: "text",
                   text: `Transcribí este audio y extraé los datos del celular.${data.texto.trim() ? ` Texto detectado por el navegador: ${data.texto.trim()}` : ""}`,
                 },
                 {
-                  type: "file" as const,
+                  type: "file",
                   mediaType: data.mediaType,
                   data: data.audioBase64,
                 },
               ],
             },
           ],
-        }
-      : {
+        })
+      : await generateText({
           model: gateway("google/gemini-3-flash-preview"),
           system: instruction,
           prompt: data.texto,
-        };
-
-    const { text } = await generateText({
-      ...request,
-    });
+        });
     try {
       const parsed = extractJSON(text);
       return VozSchema.parse(parsed);
