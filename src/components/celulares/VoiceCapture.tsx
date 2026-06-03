@@ -116,8 +116,8 @@ export function VoiceCapture({ onParsed }: { onParsed: (p: Parsed) => void }) {
       chunksRef.current = [];
       updateTexto("");
 
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
-      const media = new MediaRecorder(stream, { mimeType });
+      const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find((type) => MediaRecorder.isTypeSupported(type));
+      const media = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       media.ondataavailable = (event) => {
         if (event.data.size > 0) chunksRef.current.push(event.data);
       };
