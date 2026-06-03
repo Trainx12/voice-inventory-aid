@@ -4,10 +4,6 @@ import { useServerFn } from "@tanstack/react-start";
 import { listCelulares } from "@/lib/celulares.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Smartphone, CheckCircle2, DollarSign, TrendingUp, PackageX } from "lucide-react";
-import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
-  PieChart, Pie, Cell, Legend,
-} from "recharts";
 
 export const Route = createFileRoute("/_authenticated/")({
   component: Dashboard,
@@ -63,7 +59,9 @@ function Dashboard() {
     .sort((a, b) => b.value - a.value)
     .slice(0, 6);
 
-  const pieColors = ["hsl(var(--primary))", "#60a5fa", "#34d399", "#fbbf24", "#f87171", "#a78bfa"];
+  const maxGanancia = Math.max(...meses.map((m) => m.ganancia), 1);
+  const maxVentas = Math.max(...meses.map((m) => m.ventas), 1);
+  const maxMarca = Math.max(...porMarca.map((m) => m.value), 1);
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -85,20 +83,22 @@ function Dashboard() {
           <CardHeader>
             <CardTitle className="text-base">Ventas y ganancia · últimos 6 meses</CardTitle>
           </CardHeader>
-          <CardContent className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={meses}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="mes" className="text-xs" />
-                <YAxis yAxisId="left" className="text-xs" />
-                <YAxis yAxisId="right" orientation="right" className="text-xs"
-                  tickFormatter={(v) => `$${Math.round(v / 1000)}k`} />
-                <Tooltip formatter={(v: any, name) => name === "ganancia" ? fmt(Number(v)) : v} />
-                <Legend />
-                <Bar yAxisId="left" dataKey="ventas" name="Ventas" fill="hsl(var(--primary))" radius={[4,4,0,0]} />
-                <Bar yAxisId="right" dataKey="ganancia" name="Ganancia" fill="#34d399" radius={[4,4,0,0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent>
+            <div className="flex h-64 items-end gap-3 border-b border-l px-3 pt-4">
+              {meses.map((m) => (
+                <div key={m.mes} className="flex min-w-0 flex-1 flex-col items-center gap-2">
+                  <div className="flex h-44 w-full items-end justify-center gap-1">
+                    <div className="w-4 rounded-t bg-primary" style={{ height: `${Math.max(8, (m.ventas / maxVentas) * 100)}%` }} title={`${m.ventas} ventas`} />
+                    <div className="w-4 rounded-t bg-accent" style={{ height: `${Math.max(8, (m.ganancia / maxGanancia) * 100)}%` }} title={fmt(m.ganancia)} />
+                  </div>
+                  <span className="truncate text-xs text-muted-foreground">{m.mes}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex gap-4 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-primary" />Ventas</span>
+              <span className="inline-flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-accent" />Ganancia</span>
+            </div>
           </CardContent>
         </Card>
 
@@ -106,20 +106,23 @@ function Dashboard() {
           <CardHeader>
             <CardTitle className="text-base">Por marca</CardTitle>
           </CardHeader>
-          <CardContent className="h-72">
+          <CardContent>
             {porMarca.length === 0 ? (
               <p className="text-sm text-muted-foreground">Sin datos.</p>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={porMarca} dataKey="value" nameKey="name" outerRadius={80} label>
-                    {porMarca.map((_, i) => (
-                      <Cell key={i} fill={pieColors[i % pieColors.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="space-y-4">
+                {porMarca.map((m) => (
+                  <div key={m.name} className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="truncate font-medium">{m.name}</span>
+                      <span className="text-muted-foreground">{m.value}</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted">
+                      <div className="h-2 rounded-full bg-primary" style={{ width: `${(m.value / maxMarca) * 100}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
