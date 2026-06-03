@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mic, Square, Sparkles } from "lucide-react";
@@ -7,69 +7,174 @@ import { interpretarVoz } from "@/lib/ai.functions";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 
-type Parsed = { marca: string; modelo: string; precio_compra: number; problemas: string; observaciones: string };
+type Parsed = { transcripcion?: string; marca: string; modelo: string; precio_compra: number; problemas: string; observaciones: string };
+
+function arrayBufferToBase64(buffer: ArrayBuffer) {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(binary);
+}
+
+function encodeWav(audioBuffer: AudioBuffer) {
+  const channels = Array.from({ length: audioBuffer.numberOfChannels }, (_, index) => audioBuffer.getChannelData(index));
+  const sampleRate = audioBuffer.sampleRate;
+  const samples = audioBuffer.length;
+  const blockAlign = channels.length * 2;
+  const buffer = new ArrayBuffer(44 + samples * blockAlign);
+  const view = new DataView(buffer);
+  const writeString = (offset: number, value: string) => {
+    for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i));
+  };
+
+  writeString(0, "RIFF");
+  view.setUint32(4, 36 + samples * blockAlign, true);
+  writeString(8, "WAVE");
+  writeString(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, channels.length, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, 16, true);
+  writeString(36, "data");
+  view.setUint32(40, samples * blockAlign, true);
+
+  let offset = 44;
+  for (let i = 0; i < samples; i++) {
+    for (const channel of channels) {
+      const sample = Math.max(-1, Math.min(1, channel[i] ?? 0));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+      offset += 2;
+    }
+  }
+  return buffer;
+}
+
+async function audioBlobToWavBase64(blob: Blob) {
+  const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+  const audioContext = new AudioContextCtor();
+  try {
+    const audioBuffer = await audioContext.decodeAudioData(await blob.arrayBuffer());
+    return arrayBufferToBase64(encodeWav(audioBuffer));
+  } finally {
+    await audioContext.close?.();
+  }
+}
 
 export function VoiceCapture({ onParsed }: { onParsed: (p: Parsed) => void }) {
   const [recording, setRecording] = useState(false);
   const [texto, setTexto] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
+  const [status, setStatus] = useState("Presioná para grabar");
   const recRef = useRef<any>(null);
+  const mediaRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const textoRef = useRef("");
   const interpret = useServerFn(interpretarVoz);
 
-  const start = async () => {
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) { toast.error("Tu navegador no soporta reconocimiento de voz. Probá Chrome."); return; }
-    // Forzar prompt de permiso del micrófono (necesario dentro de iframes de preview)
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((t) => t.stop());
-    } catch (err: any) {
-      toast.error("No se pudo acceder al micrófono. Permití el acceso en el navegador. " + (err?.message || ""));
-      return;
-    }
-    const rec = new SR();
-    rec.lang = "es-AR";
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.onresult = (e: any) => {
-      let t = "";
-      for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
-      setTexto(t);
-    };
-    rec.onend = () => setRecording(false);
-    rec.onerror = (e: any) => {
-      const map: Record<string, string> = {
-        "not-allowed": "Permiso de micrófono denegado",
-        "service-not-allowed": "El navegador bloqueó el reconocimiento de voz",
-        "no-speech": "No detecté voz, probá de nuevo",
-        "audio-capture": "No se encontró micrófono",
-        "network": "Error de red en el reconocimiento de voz",
-      };
-      toast.error(map[e.error] || ("Error: " + e.error));
-      setRecording(false);
-    };
-    recRef.current = rec;
-    try {
-      rec.start();
-      setRecording(true);
-    } catch (err: any) {
-      toast.error("No se pudo iniciar la grabación: " + (err?.message || ""));
-    }
-  };
-  const stop = () => recRef.current?.stop();
+  useEffect(() => () => streamRef.current?.getTracks().forEach((track) => track.stop()), []);
 
-  const analyze = async () => {
-    if (!texto.trim()) return;
+  const updateTexto = (value: string) => {
+    textoRef.current = value;
+    setTexto(value);
+  };
+
+  const analyze = async (audioBase64?: string) => {
+    const textoActual = textoRef.current.trim();
+    if (!textoActual && !audioBase64) return;
     setAnalyzing(true);
+    setStatus("Interpretando con IA...");
     try {
-      const out = await interpret({ data: { texto } });
-      onParsed(out as Parsed);
+      const out = await interpret({ data: { texto: textoActual, audioBase64, mediaType: "audio/wav" } });
+      const parsed = out as Parsed;
+      if (parsed.transcripcion?.trim()) updateTexto(parsed.transcripcion.trim());
+      onParsed(parsed);
       toast.success("Datos extraídos");
+      setStatus("Listo");
     } catch (err: any) {
       toast.error(err.message || "Error de IA");
+      setStatus("No pude interpretar el audio");
     } finally {
       setAnalyzing(false);
     }
+  };
+
+  const start = async () => {
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      toast.error("Tu navegador no permite grabar audio. Probá Chrome.");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      chunksRef.current = [];
+      updateTexto("");
+
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
+      const media = new MediaRecorder(stream, { mimeType });
+      media.ondataavailable = (event) => {
+        if (event.data.size > 0) chunksRef.current.push(event.data);
+      };
+      media.onstop = async () => {
+        setRecording(false);
+        setStatus("Procesando audio...");
+        stream.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+
+        const blob = new Blob(chunksRef.current, { type: media.mimeType || "audio/webm" });
+        if (blob.size < 500) {
+          setStatus("No detecté audio, probá de nuevo");
+          return;
+        }
+
+        try {
+          const audioBase64 = await audioBlobToWavBase64(blob);
+          await analyze(audioBase64);
+        } catch (err: any) {
+          toast.error("No pude procesar el audio grabado. Probá escribir la frase en el cuadro.");
+          setStatus("No pude procesar el audio");
+        }
+      };
+      mediaRef.current = media;
+      media.start();
+
+      const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SR) {
+        const rec = new SR();
+        let finalTranscript = "";
+        rec.lang = "es-AR";
+        rec.continuous = true;
+        rec.interimResults = true;
+        rec.onresult = (e: any) => {
+          let interim = "";
+          for (let i = e.resultIndex; i < e.results.length; i++) {
+            const transcript = e.results[i][0]?.transcript ?? "";
+            if (e.results[i].isFinal) finalTranscript += `${transcript} `;
+            else interim += transcript;
+          }
+          updateTexto(`${finalTranscript}${interim}`.trim());
+        };
+        rec.onerror = () => undefined;
+        recRef.current = rec;
+        try { rec.start(); } catch { recRef.current = null; }
+      }
+
+      setRecording(true);
+      setStatus("Grabando... hablá libremente");
+    } catch (err: any) {
+      toast.error("No se pudo acceder al micrófono. Permití el acceso en el navegador. " + (err?.message || ""));
+    }
+  };
+  const stop = () => {
+    recRef.current?.stop?.();
+    recRef.current = null;
+    if (mediaRef.current?.state === "recording") mediaRef.current.stop();
   };
 
   return (
@@ -86,16 +191,16 @@ export function VoiceCapture({ onParsed }: { onParsed: (p: Parsed) => void }) {
             </Button>
           )}
           <p className="text-sm text-muted-foreground text-center">
-            {recording ? "Grabando... hablá libremente" : "Presioná para grabar"}
+            {status}
           </p>
         </div>
         <Textarea
           placeholder='Ej: "Compré un Samsung A54 a 200 mil pesos y tiene la pantalla rota"'
           value={texto}
-          onChange={(e) => setTexto(e.target.value)}
+          onChange={(e) => updateTexto(e.target.value)}
           rows={3}
         />
-        <Button type="button" className="w-full" disabled={!texto.trim() || analyzing} onClick={analyze}>
+        <Button type="button" className="w-full" disabled={(!texto.trim() && !recording) || analyzing || recording} onClick={() => analyze()}>
           <Sparkles className="h-4 w-4 mr-2" />
           {analyzing ? "Analizando..." : "Interpretar con IA"}
         </Button>
