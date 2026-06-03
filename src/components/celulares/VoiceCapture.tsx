@@ -16,9 +16,17 @@ export function VoiceCapture({ onParsed }: { onParsed: (p: Parsed) => void }) {
   const recRef = useRef<any>(null);
   const interpret = useServerFn(interpretarVoz);
 
-  const start = () => {
+  const start = async () => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { toast.error("Tu navegador no soporta reconocimiento de voz. Probá Chrome."); return; }
+    // Forzar prompt de permiso del micrófono (necesario dentro de iframes de preview)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+    } catch (err: any) {
+      toast.error("No se pudo acceder al micrófono. Permití el acceso en el navegador. " + (err?.message || ""));
+      return;
+    }
     const rec = new SR();
     rec.lang = "es-AR";
     rec.continuous = true;
@@ -29,10 +37,24 @@ export function VoiceCapture({ onParsed }: { onParsed: (p: Parsed) => void }) {
       setTexto(t);
     };
     rec.onend = () => setRecording(false);
-    rec.onerror = (e: any) => { toast.error("Error: " + e.error); setRecording(false); };
+    rec.onerror = (e: any) => {
+      const map: Record<string, string> = {
+        "not-allowed": "Permiso de micrófono denegado",
+        "service-not-allowed": "El navegador bloqueó el reconocimiento de voz",
+        "no-speech": "No detecté voz, probá de nuevo",
+        "audio-capture": "No se encontró micrófono",
+        "network": "Error de red en el reconocimiento de voz",
+      };
+      toast.error(map[e.error] || ("Error: " + e.error));
+      setRecording(false);
+    };
     recRef.current = rec;
-    rec.start();
-    setRecording(true);
+    try {
+      rec.start();
+      setRecording(true);
+    } catch (err: any) {
+      toast.error("No se pudo iniciar la grabación: " + (err?.message || ""));
+    }
   };
   const stop = () => recRef.current?.stop();
 
