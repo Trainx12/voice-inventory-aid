@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, redirect, Link, useRouter } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
-import { LayoutDashboard, ListChecks, PlusCircle, MessageSquare, LogOut } from "lucide-react";
+import { LayoutDashboard, ListChecks, PlusCircle, MessageSquare, LogOut, Trash2, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -39,6 +39,8 @@ function AuthedLayout() {
         <NavItem to="/inventario" icon={<ListChecks className="h-4 w-4" />}>Inventario</NavItem>
         <NavItem to="/nuevo" icon={<PlusCircle className="h-4 w-4" />}>Nuevo celular</NavItem>
         <NavItem to="/asistente" icon={<MessageSquare className="h-4 w-4" />}>Asistente</NavItem>
+        <NavItem to="/papelera" icon={<Trash2 className="h-4 w-4" />}>Papelera</NavItem>
+        <NavItem to="/historial" icon={<History className="h-4 w-4" />}>Historial</NavItem>
         <div className="mt-auto">
           <Button variant="ghost" className="w-full justify-start" onClick={signOut}>
             <LogOut className="h-4 w-4 mr-2" /> Cerrar sesión
@@ -55,6 +57,8 @@ function AuthedLayout() {
           <MobileNav to="/inventario">Inventario</MobileNav>
           <MobileNav to="/nuevo">Nuevo</MobileNav>
           <MobileNav to="/asistente">Asistente</MobileNav>
+          <MobileNav to="/papelera">Papelera</MobileNav>
+          <MobileNav to="/historial">Historial</MobileNav>
         </nav>
         <div className="p-4 md:p-8">
           <Outlet />
