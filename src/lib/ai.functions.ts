@@ -40,6 +40,7 @@ export const consultaAsistente = createServerFn({ method: "POST" })
     const { data: rows, error } = await context.supabase
       .from("celulares")
       .select("marca,modelo,estado,problemas,precio_compra,precio_venta,vendido,fecha_creacion")
+      .eq("eliminado", false)
       .order("fecha_creacion", { ascending: false })
       .limit(500);
     if (error) throw new Error(error.message);
