@@ -22,6 +22,7 @@ export const listCelulares = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("celulares")
       .select("*")
+      .eq("eliminado", false)
       .order("fecha_creacion", { ascending: false });
     if (error) throw new Error(error.message);
     return data ?? [];
@@ -69,9 +70,57 @@ export const eliminarCelular = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("celulares")
+      .update({ eliminado: true, fecha_eliminacion: new Date().toISOString() })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const listPapelera = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("celulares")
+      .select("*")
+      .eq("eliminado", true)
+      .order("fecha_eliminacion", { ascending: false });
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+export const restaurarCelular = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("celulares")
+      .update({ eliminado: false, fecha_eliminacion: null })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const eliminarDefinitivo = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("celulares").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+export const listHistorial = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("celulares_historial")
+      .select("*")
+      .order("fecha", { ascending: false })
+      .limit(200);
+    if (error) throw new Error(error.message);
+    return data ?? [];
   });
 
 export const getMyRole = createServerFn({ method: "GET" })

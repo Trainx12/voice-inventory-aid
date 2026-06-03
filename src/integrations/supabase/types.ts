@@ -16,10 +16,12 @@ export type Database = {
     Tables: {
       celulares: {
         Row: {
+          eliminado: boolean
           estado: string
           fecha_actualizacion: string
           fecha_compra: string
           fecha_creacion: string
+          fecha_eliminacion: string | null
           fecha_venta: string | null
           id: string
           imagenes: string[]
@@ -34,10 +36,12 @@ export type Database = {
           vendido: boolean
         }
         Insert: {
+          eliminado?: boolean
           estado?: string
           fecha_actualizacion?: string
           fecha_compra?: string
           fecha_creacion?: string
+          fecha_eliminacion?: string | null
           fecha_venta?: string | null
           id?: string
           imagenes?: string[]
@@ -52,10 +56,12 @@ export type Database = {
           vendido?: boolean
         }
         Update: {
+          eliminado?: boolean
           estado?: string
           fecha_actualizacion?: string
           fecha_compra?: string
           fecha_creacion?: string
+          fecha_eliminacion?: string | null
           fecha_venta?: string | null
           id?: string
           imagenes?: string[]
@@ -68,6 +74,33 @@ export type Database = {
           problemas?: string | null
           user_id?: string
           vendido?: boolean
+        }
+        Relationships: []
+      }
+      celulares_historial: {
+        Row: {
+          accion: string
+          celular_id: string
+          diff: Json | null
+          fecha: string
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          accion: string
+          celular_id: string
+          diff?: Json | null
+          fecha?: string
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          accion?: string
+          celular_id?: string
+          diff?: Json | null
+          fecha?: string
+          id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
