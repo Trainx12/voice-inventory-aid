@@ -13,6 +13,18 @@ const VozSchema = z.object({
   observaciones: z.string().optional().default(""),
 });
 
+const CATEGORIAS_REP = ["modulo","placa_carga","bateria","porta_sim","flex","camara","tapa","placa_main","otro"] as const;
+const RepuestoVozSchema = z.object({
+  transcripcion: z.string().optional().default(""),
+  categoria: z.enum(CATEGORIAS_REP).optional().default("otro"),
+  marca: z.string().optional().default(""),
+  modelo_compatible: z.string().optional().default(""),
+  precio_compra: z.number().optional().default(0),
+  precio_venta: z.number().optional().default(0),
+  stock: z.number().int().optional().default(1),
+  observaciones: z.string().optional().default(""),
+});
+
 const VozInputSchema = z
   .object({
     texto: z.string().max(2000).optional().default(""),
