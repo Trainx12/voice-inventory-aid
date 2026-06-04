@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, redirect, Link, useRouter } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
-import { LayoutDashboard, ListChecks, PlusCircle, MessageSquare, LogOut, Trash2, History } from "lucide-react";
+import { LayoutDashboard, ListChecks, PlusCircle, MessageSquare, LogOut, Trash2, History, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -38,10 +38,13 @@ function AuthedLayout() {
         <NavItem to="/" icon={<LayoutDashboard className="h-4 w-4" />}>Dashboard</NavItem>
         <NavItem to="/inventario" icon={<ListChecks className="h-4 w-4" />}>Inventario</NavItem>
         <NavItem to="/nuevo" icon={<PlusCircle className="h-4 w-4" />}>Nuevo celular</NavItem>
+        <NavItem to="/repuestos" icon={<Wrench className="h-4 w-4" />}>Repuestos</NavItem>
         <NavItem to="/asistente" icon={<MessageSquare className="h-4 w-4" />}>Asistente</NavItem>
-        <NavItem to="/papelera" icon={<Trash2 className="h-4 w-4" />}>Papelera</NavItem>
-        <NavItem to="/historial" icon={<History className="h-4 w-4" />}>Historial</NavItem>
         <div className="mt-auto">
+          <div className="flex gap-1 mb-2">
+            <SecondaryNav to="/papelera" icon={<Trash2 className="h-3.5 w-3.5" />}>Papelera</SecondaryNav>
+            <SecondaryNav to="/historial" icon={<History className="h-3.5 w-3.5" />}>Historial</SecondaryNav>
+          </div>
           <Button variant="ghost" className="w-full justify-start" onClick={signOut}>
             <LogOut className="h-4 w-4 mr-2" /> Cerrar sesión
           </Button>
@@ -56,9 +59,12 @@ function AuthedLayout() {
           <MobileNav to="/">Dashboard</MobileNav>
           <MobileNav to="/inventario">Inventario</MobileNav>
           <MobileNav to="/nuevo">Nuevo</MobileNav>
+          <MobileNav to="/repuestos">Repuestos</MobileNav>
           <MobileNav to="/asistente">Asistente</MobileNav>
-          <MobileNav to="/papelera">Papelera</MobileNav>
-          <MobileNav to="/historial">Historial</MobileNav>
+        </nav>
+        <nav className="md:hidden flex gap-1 px-2 pb-2 border-b bg-card">
+          <MobileSecondary to="/papelera">Papelera</MobileSecondary>
+          <MobileSecondary to="/historial">Historial</MobileSecondary>
         </nav>
         <div className="p-4 md:p-8">
           <Outlet />
@@ -77,6 +83,28 @@ function NavItem({ to, icon, children }: { to: string; icon: React.ReactNode; ch
       activeProps={{ className: "bg-accent font-medium" }}
     >
       {icon} {children}
+    </Link>
+  );
+}
+function SecondaryNav({ to, icon, children }: { to: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <Link
+      to={to}
+      className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1 rounded-md text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+      activeProps={{ className: "text-foreground bg-accent/60" }}
+    >
+      {icon}{children}
+    </Link>
+  );
+}
+function MobileSecondary({ to, children }: { to: string; children: React.ReactNode }) {
+  return (
+    <Link
+      to={to}
+      className="px-2 py-1 rounded text-[11px] text-muted-foreground hover:text-foreground"
+      activeProps={{ className: "text-foreground underline" }}
+    >
+      {children}
     </Link>
   );
 }

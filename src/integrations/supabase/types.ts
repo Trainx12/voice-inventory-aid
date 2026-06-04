@@ -104,6 +104,54 @@ export type Database = {
         }
         Relationships: []
       }
+      repuestos: {
+        Row: {
+          categoria: Database["public"]["Enums"]["repuesto_categoria"]
+          eliminado: boolean
+          fecha_actualizacion: string
+          fecha_creacion: string
+          fecha_eliminacion: string | null
+          id: string
+          marca: string
+          modelo_compatible: string
+          observaciones: string | null
+          precio_compra: number
+          precio_venta: number
+          stock: number
+          user_id: string
+        }
+        Insert: {
+          categoria?: Database["public"]["Enums"]["repuesto_categoria"]
+          eliminado?: boolean
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          fecha_eliminacion?: string | null
+          id?: string
+          marca?: string
+          modelo_compatible?: string
+          observaciones?: string | null
+          precio_compra?: number
+          precio_venta?: number
+          stock?: number
+          user_id: string
+        }
+        Update: {
+          categoria?: Database["public"]["Enums"]["repuesto_categoria"]
+          eliminado?: boolean
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          fecha_eliminacion?: string | null
+          id?: string
+          marca?: string
+          modelo_compatible?: string
+          observaciones?: string | null
+          precio_compra?: number
+          precio_venta?: number
+          stock?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -140,6 +188,16 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "empleado"
+      repuesto_categoria:
+        | "modulo"
+        | "placa_carga"
+        | "bateria"
+        | "porta_sim"
+        | "flex"
+        | "camara"
+        | "tapa"
+        | "placa_main"
+        | "otro"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -268,6 +326,17 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "empleado"],
+      repuesto_categoria: [
+        "modulo",
+        "placa_carga",
+        "bateria",
+        "porta_sim",
+        "flex",
+        "camara",
+        "tapa",
+        "placa_main",
+        "otro",
+      ],
     },
   },
 } as const

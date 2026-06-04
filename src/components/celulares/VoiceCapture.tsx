@@ -3,11 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mic, Square, Sparkles } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { interpretarVoz } from "@/lib/ai.functions";
+import { interpretarVoz, interpretarVozRepuesto } from "@/lib/ai.functions";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 
-type Parsed = { transcripcion?: string; marca: string; modelo: string; precio_compra: number; problemas: string; observaciones: string };
+type Parsed = Record<string, any> & { transcripcion?: string };
 
 function arrayBufferToBase64(buffer: ArrayBuffer) {
   let binary = "";
@@ -65,7 +65,7 @@ async function audioBlobToWavBase64(blob: Blob) {
   }
 }
 
-export function VoiceCapture({ onParsed }: { onParsed: (p: Parsed) => void }) {
+export function VoiceCapture({ onParsed, mode = "celular" }: { onParsed: (p: Parsed) => void; mode?: "celular" | "repuesto" }) {
   const [recording, setRecording] = useState(false);
   const [texto, setTexto] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
@@ -75,7 +75,9 @@ export function VoiceCapture({ onParsed }: { onParsed: (p: Parsed) => void }) {
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const textoRef = useRef("");
-  const interpret = useServerFn(interpretarVoz);
+  const interpretCel = useServerFn(interpretarVoz);
+  const interpretRep = useServerFn(interpretarVozRepuesto);
+  const interpret = mode === "repuesto" ? interpretRep : interpretCel;
 
   useEffect(() => () => streamRef.current?.getTracks().forEach((track) => track.stop()), []);
 
