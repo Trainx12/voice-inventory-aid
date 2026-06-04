@@ -37,8 +37,11 @@ export function CelularForm({ initial, onSaved }: { initial?: CelularInitial; on
     setSaving(true);
     try {
       const paths: string[] = [];
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      if (!uid) throw new Error("No autenticado");
       for (const file of files) {
-        const path = `${crypto.randomUUID()}-${file.name}`;
+        const path = `${uid}/${crypto.randomUUID()}-${file.name}`;
         const { error } = await supabase.storage.from("celulares").upload(path, file);
         if (error) throw error;
         paths.push(path);
