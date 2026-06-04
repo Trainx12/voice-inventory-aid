@@ -30,7 +30,28 @@ function Dashboard() {
     .reduce((a, c) => a + (Number(c.precio_venta || 0) - Number(c.precio_compra || 0)), 0);
 
   // Ventas por mes (últimos 6 meses)
-  const meses: { mes: string; ventas: number; ganancia: number }[] = [];
+  const BRAND_COLORS: Record<string, string> = {
+    iphone: "#a3a3a3",     // Apple silver
+    samsung: "#1428a0",    // Samsung blue
+    motorola: "#e60023",   // Motorola red
+    xiaomi: "#ff6900",     // Xiaomi orange
+    otras: "#111111",
+  };
+  const BRAND_LABELS: Record<string, string> = {
+    iphone: "iPhone", samsung: "Samsung", motorola: "Motorola", xiaomi: "Xiaomi", otras: "Otras",
+  };
+  const brandKey = (raw: string) => {
+    const m = (raw || "").toLowerCase();
+    if (m.includes("iphone") || m.includes("apple")) return "iphone";
+    if (m.includes("samsung")) return "samsung";
+    if (m.includes("motorola") || m.includes("moto ")) return "motorola";
+    if (m.includes("xiaomi") || m.includes("redmi") || m.includes("poco")) return "xiaomi";
+    return "otras";
+  };
+  const BRAND_KEYS = ["iphone", "samsung", "motorola", "xiaomi", "otras"] as const;
+
+  type MesData = { mes: string; ventasPorMarca: Record<string, number>; gananciaPorMarca: Record<string, number>; ventasTotal: number; gananciaTotal: number };
+  const meses: MesData[] = [];
   const now = new Date();
   for (let i = 5; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -40,10 +61,18 @@ function Dashboard() {
       const dv = new Date(c.fecha_venta);
       return dv.getFullYear() === d.getFullYear() && dv.getMonth() === d.getMonth();
     });
+    const ventasPorMarca: Record<string, number> = {};
+    const gananciaPorMarca: Record<string, number> = {};
+    for (const k of BRAND_KEYS) { ventasPorMarca[k] = 0; gananciaPorMarca[k] = 0; }
+    for (const c of inMonth) {
+      const k = brandKey(c.marca);
+      ventasPorMarca[k] += 1;
+      gananciaPorMarca[k] += Number(c.precio_venta || 0) - Number(c.precio_compra || 0);
+    }
     meses.push({
-      mes: key,
-      ventas: inMonth.length,
-      ganancia: inMonth.reduce((a, c) => a + (Number(c.precio_venta || 0) - Number(c.precio_compra || 0)), 0),
+      mes: key, ventasPorMarca, gananciaPorMarca,
+      ventasTotal: inMonth.length,
+      gananciaTotal: inMonth.reduce((a, c) => a + (Number(c.precio_venta || 0) - Number(c.precio_compra || 0)), 0),
     });
   }
 
@@ -59,8 +88,8 @@ function Dashboard() {
     .sort((a, b) => b.value - a.value)
     .slice(0, 6);
 
-  const maxGanancia = Math.max(...meses.map((m) => m.ganancia), 1);
-  const maxVentas = Math.max(...meses.map((m) => m.ventas), 1);
+  const maxGanancia = Math.max(...meses.map((m) => m.gananciaTotal), 1);
+  const maxVentas = Math.max(...meses.map((m) => m.ventasTotal), 1);
   const maxMarca = Math.max(...porMarca.map((m) => m.value), 1);
 
   return (
@@ -88,16 +117,31 @@ function Dashboard() {
               {meses.map((m) => (
                 <div key={m.mes} className="flex min-w-0 flex-1 flex-col items-center gap-2">
                   <div className="flex h-44 w-full items-end justify-center gap-1">
-                    <div className="w-4 rounded-t bg-primary" style={{ height: `${Math.max(8, (m.ventas / maxVentas) * 100)}%` }} title={`${m.ventas} ventas`} />
-                    <div className="w-4 rounded-t bg-accent" style={{ height: `${Math.max(8, (m.ganancia / maxGanancia) * 100)}%` }} title={fmt(m.ganancia)} />
+                    {/* Stacked ventas por marca */}
+                    <div className="w-5 flex flex-col-reverse rounded-t overflow-hidden" title={`${m.ventasTotal} ventas`} style={{ height: `${Math.max(4, (m.ventasTotal / maxVentas) * 100)}%` }}>
+                      {BRAND_KEYS.map((k) => m.ventasPorMarca[k] > 0 && (
+                        <div key={k} style={{ background: BRAND_COLORS[k], flex: m.ventasPorMarca[k] }} title={`${BRAND_LABELS[k]}: ${m.ventasPorMarca[k]}`} />
+                      ))}
+                    </div>
+                    {/* Stacked ganancia por marca */}
+                    <div className="w-5 flex flex-col-reverse rounded-t overflow-hidden opacity-80" title={fmt(m.gananciaTotal)} style={{ height: `${Math.max(4, (Math.max(0, m.gananciaTotal) / maxGanancia) * 100)}%` }}>
+                      {BRAND_KEYS.map((k) => m.gananciaPorMarca[k] > 0 && (
+                        <div key={k} style={{ background: BRAND_COLORS[k], flex: m.gananciaPorMarca[k] }} title={`${BRAND_LABELS[k]}: ${fmt(m.gananciaPorMarca[k])}`} />
+                      ))}
+                    </div>
                   </div>
                   <span className="truncate text-xs text-muted-foreground">{m.mes}</span>
                 </div>
               ))}
             </div>
-            <div className="mt-3 flex gap-4 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-primary" />Ventas</span>
-              <span className="inline-flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-accent" />Ganancia</span>
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              {BRAND_KEYS.map((k) => (
+                <span key={k} className="inline-flex items-center gap-1">
+                  <i className="h-2 w-2 rounded-full" style={{ background: BRAND_COLORS[k] }} />
+                  {BRAND_LABELS[k]}
+                </span>
+              ))}
+              <span className="ml-auto">Barra izq: ventas · der: ganancia</span>
             </div>
           </CardContent>
         </Card>
