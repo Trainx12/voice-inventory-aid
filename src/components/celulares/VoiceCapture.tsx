@@ -197,7 +197,11 @@ export function VoiceCapture({ onParsed, mode = "celular" }: { onParsed: (p: Par
           </p>
         </div>
         <Textarea
-          placeholder='Ej: "Compré un Samsung A54 a 200 mil pesos y tiene la pantalla rota"'
+          placeholder={
+            mode === "repuesto"
+              ? 'Ej: "Compré 3 módulos de Samsung A54 a 15 mil cada uno, los vendo a 25"'
+              : 'Ej: "Compré un Samsung A54 a 200 mil pesos y tiene la pantalla rota"'
+          }
           value={texto}
           onChange={(e) => updateTexto(e.target.value)}
           rows={3}
