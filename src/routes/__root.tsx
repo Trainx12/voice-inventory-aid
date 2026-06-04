@@ -77,14 +77,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "Celus" },
+      { name: "description", content: "Inventory Buddy is a web app for managing used cell phone inventory with voice input." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "Celus" },
+      { property: "og:description", content: "Inventory Buddy is a web app for managing used cell phone inventory with voice input." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Celus" },
+      { name: "twitter:description", content: "Inventory Buddy is a web app for managing used cell phone inventory with voice input." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/dce486c0-db27-46c8-939d-93df3cb2fa60/id-preview-2d0244d3--d254e7b8-72fe-410f-ba7b-2babb544ccc7.lovable.app-1780572086624.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/dce486c0-db27-46c8-939d-93df3cb2fa60/id-preview-2d0244d3--d254e7b8-72fe-410f-ba7b-2babb544ccc7.lovable.app-1780572086624.png" },
     ],
     links: [
       {
