@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { generateText } from "ai";
 import { z } from "zod";
-import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 
 const VozSchema = z.object({
   transcripcion: z.string().optional().default(""),
@@ -51,6 +50,7 @@ export const interpretarVoz = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("Falta LOVABLE_API_KEY");
+    const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
     const gateway = createLovableAiGatewayProvider(key);
     const instruction =
       "Extraé datos de un celular usado a partir de voz o texto en español rioplatense. Los precios pueden venir como '200 mil', '200000', '200k', '1,5 millones'. Convertilo a número entero. Si falta un dato, devolvé string vacío o 0. Marcas comunes: Samsung, Apple/iPhone, Motorola, Xiaomi, Huawei, LG.\n\nRespondé SOLO con un objeto JSON válido con estas claves exactas: transcripcion (string), marca (string), modelo (string), precio_compra (number), problemas (string), observaciones (string). Sin texto adicional, sin markdown.";
@@ -95,6 +95,7 @@ export const interpretarVozRepuesto = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("Falta LOVABLE_API_KEY");
+    const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
     const gateway = createLovableAiGatewayProvider(key);
     const instruction =
       "Extraé datos de un REPUESTO de celular a partir de voz o texto en español rioplatense. Devolvé SOLO un JSON con las claves: transcripcion (string), categoria (uno de: modulo, placa_carga, bateria, porta_sim, flex, camara, tapa, placa_main, otro), marca (string), modelo_compatible (string), precio_compra (number), precio_venta (number), stock (number entero, default 1), observaciones (string).\n\nMapeo de categoría desde el habla coloquial: 'módulo'/'pantalla'/'display' => modulo; 'pin de carga'/'placa de carga'/'conector de carga' => placa_carga; 'batería'/'pila' => bateria; 'porta sim'/'bandeja sim'/'lector sim' => porta_sim; 'flex'/'flex de power'/'flex de volumen' => flex; 'cámara'/'lente' => camara; 'tapa'/'tapa trasera'/'tapa de batería' => tapa; 'placa main'/'placa madre'/'lógica'/'mother' => placa_main. Si no entra en ninguna, usá 'otro'.\n\nLos precios pueden venir como '15 mil', '15000', '15k'. Convertilos a entero. Si falta un dato, devolvé string vacío o 0. Sin texto adicional, sin markdown.";
@@ -142,6 +143,7 @@ export const consultaAsistente = createServerFn({ method: "POST" })
 
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("Falta LOVABLE_API_KEY");
+    const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
     const gateway = createLovableAiGatewayProvider(key);
     const { text } = await generateText({
       model: gateway("google/gemini-3-flash-preview"),
