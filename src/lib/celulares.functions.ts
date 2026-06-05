@@ -148,3 +148,27 @@ export const signedUrlsFor = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { urls: signed.map((s) => s.signedUrl) };
   });
+
+const CelularBulkItem = z.object({
+  marca: z.string().min(1).max(80),
+  modelo: z.string().min(1).max(120),
+  imei: z.string().max(40).optional().nullable(),
+  precio_compra: z.coerce.number().min(0).default(0),
+  precio_venta: z.coerce.number().min(0).default(0),
+  estado: z.string().max(40).default("disponible"),
+  problemas: z.string().max(2000).optional().nullable(),
+  observaciones: z.string().max(2000).optional().nullable(),
+  fecha_compra: z.string().default(() => new Date().toISOString().slice(0, 10)),
+});
+
+export const bulkInsertCelulares = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ items: z.array(CelularBulkItem).min(1).max(500) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const rows = data.items.map((i) => ({ ...i, imagenes: [], user_id: context.userId }));
+    const { error } = await context.supabase.from("celulares").insert(rows);
+    if (error) throw new Error(error.message);
+    return { count: rows.length };
+  });

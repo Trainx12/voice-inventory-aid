@@ -12,7 +12,11 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Plus, Minus, Trash2 } from "lucide-react";
 import { VoiceCapture } from "@/components/celulares/VoiceCapture";
-import { ajustarStock, CATEGORIAS, eliminarRepuesto, listRepuestos, upsertRepuesto } from "@/lib/repuestos.functions";
+import { ajustarStock, bulkInsertRepuestos, CATEGORIAS, eliminarRepuesto, listRepuestos, upsertRepuesto } from "@/lib/repuestos.functions";
+import { CsvImport } from "@/components/celulares/CsvImport";
+
+const REP_CSV_TEMPLATE =
+  "categoria,marca,modelo_compatible,precio_compra,precio_venta,stock,observaciones\nmodulo,Samsung,A54,15000,25000,3,\nbateria,Apple,iPhone 11,8000,15000,2,\n";
 
 export const Route = createFileRoute("/_authenticated/repuestos")({
   component: RepuestosPage,
@@ -55,6 +59,7 @@ function RepuestosPage() {
   const save = useServerFn(upsertRepuesto);
   const del = useServerFn(eliminarRepuesto);
   const adjust = useServerFn(ajustarStock);
+  const bulk = useServerFn(bulkInsertRepuestos);
   const { data, isLoading } = useQuery({ queryKey: ["repuestos"], queryFn: () => list() });
   const items = data ?? [];
 
@@ -78,6 +83,14 @@ function RepuestosPage() {
     mutationFn: (v: { id: string; delta: number }) => adjust({ data: v }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["repuestos"] }),
   });
+  const bulkMut = useMutation({
+    mutationFn: (items: any[]) => bulk({ data: { items } }),
+    onSuccess: (r) => {
+      toast.success(`${r.count} repuestos importados`);
+      qc.invalidateQueries({ queryKey: ["repuestos"] });
+    },
+    onError: (e: any) => toast.error(e.message || "Error al importar"),
+  });
 
   const grouped = CATEGORIAS.map((c) => ({ cat: c, items: items.filter((r) => r.categoria === c) }));
 
@@ -86,18 +99,58 @@ function RepuestosPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold">Repuestos</h1>
-          <p className="text-muted-foreground text-sm">Inventario por categoría · podés cargar por voz</p>
+          <p className="text-muted-foreground text-sm">Inventario por categoría · cargá por voz, manual o CSV</p>
         </div>
-        <Button onClick={() => { setForm(empty); setShowForm((s) => !s); }}>
-          <Plus className="h-4 w-4 mr-2" />{showForm ? "Cerrar" : "Nuevo repuesto"}
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <CsvImport
+            label="Importar CSV"
+            templateName="repuestos-plantilla.csv"
+            template={REP_CSV_TEMPLATE}
+            disabled={bulkMut.isPending}
+            onParsed={async (rows) => {
+              const valid = (CATEGORIAS as readonly string[]);
+              await bulkMut.mutateAsync(
+                rows.map((r) => ({
+                  categoria: valid.includes(r.categoria) ? r.categoria : "otro",
+                  marca: r.marca || "",
+                  modelo_compatible: r.modelo_compatible || "",
+                  precio_compra: Number(r.precio_compra || 0),
+                  precio_venta: Number(r.precio_venta || 0),
+                  stock: Number(r.stock || 1),
+                  observaciones: r.observaciones || null,
+                })),
+              );
+            }}
+          />
+          <Button onClick={() => { setForm(empty); setShowForm((s) => !s); }}>
+            <Plus className="h-4 w-4 mr-2" />{showForm ? "Cerrar" : "Nuevo repuesto"}
+          </Button>
+        </div>
       </div>
 
       {showForm && (
         <div className="grid gap-4 md:grid-cols-2">
           <VoiceCapture
             mode="repuesto"
-            onParsed={(p) => {
+            onParsed={(items) => {
+              if (items.length === 0) return;
+              if (items.length > 1) {
+                const valid = (CATEGORIAS as readonly string[]);
+                bulkMut.mutate(
+                  items.map((p) => ({
+                    categoria: valid.includes(p.categoria) ? p.categoria : "otro",
+                    marca: p.marca || "",
+                    modelo_compatible: p.modelo_compatible || "",
+                    precio_compra: Number(p.precio_compra) || 0,
+                    precio_venta: Number(p.precio_venta) || 0,
+                    stock: Number(p.stock) || 1,
+                    observaciones: p.observaciones || null,
+                  })),
+                );
+                setShowForm(false);
+                return;
+              }
+              const p = items[0];
               setForm((f) => ({
                 ...f,
                 categoria: (CATEGORIAS as readonly string[]).includes(p.categoria) ? p.categoria : f.categoria,

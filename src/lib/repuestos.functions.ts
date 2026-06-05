@@ -76,3 +76,25 @@ export const ajustarStock = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { stock: next };
   });
+
+const RepuestoBulkItem = z.object({
+  categoria: z.enum(CATEGORIAS),
+  marca: z.string().max(80).default(""),
+  modelo_compatible: z.string().max(160).default(""),
+  precio_compra: z.coerce.number().min(0).default(0),
+  precio_venta: z.coerce.number().min(0).default(0),
+  stock: z.coerce.number().int().min(0).default(1),
+  observaciones: z.string().max(2000).optional().nullable(),
+});
+
+export const bulkInsertRepuestos = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ items: z.array(RepuestoBulkItem).min(1).max(500) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const rows = data.items.map((i) => ({ ...i, user_id: context.userId }));
+    const { error } = await context.supabase.from("repuestos").insert(rows);
+    if (error) throw new Error(error.message);
+    return { count: rows.length };
+  });

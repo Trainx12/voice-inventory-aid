@@ -7,7 +7,7 @@ import { interpretarVoz, interpretarVozRepuesto } from "@/lib/ai.functions";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 
-type Parsed = Record<string, any> & { transcripcion?: string };
+type Parsed = Record<string, any>;
 
 function arrayBufferToBase64(buffer: ArrayBuffer) {
   let binary = "";
@@ -65,7 +65,13 @@ async function audioBlobToWavBase64(blob: Blob) {
   }
 }
 
-export function VoiceCapture({ onParsed, mode = "celular" }: { onParsed: (p: Parsed) => void; mode?: "celular" | "repuesto" }) {
+export function VoiceCapture({
+  onParsed,
+  mode = "celular",
+}: {
+  onParsed: (items: Parsed[], transcripcion?: string) => void;
+  mode?: "celular" | "repuesto";
+}) {
   const [recording, setRecording] = useState(false);
   const [texto, setTexto] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
@@ -92,11 +98,13 @@ export function VoiceCapture({ onParsed, mode = "celular" }: { onParsed: (p: Par
     setAnalyzing(true);
     setStatus("Interpretando con IA...");
     try {
-      const out = await interpret({ data: { texto: textoActual, audioBase64, mediaType: "audio/wav" } });
-      const parsed = out as Parsed;
-      if (parsed.transcripcion?.trim()) updateTexto(parsed.transcripcion.trim());
-      onParsed(parsed);
-      toast.success("Datos extraídos");
+      const out: any = await interpret({ data: { texto: textoActual, audioBase64, mediaType: "audio/wav" } });
+      const transcripcion: string = out?.transcripcion ?? "";
+      const items: Parsed[] = Array.isArray(out?.items) ? out.items : [];
+      if (transcripcion.trim()) updateTexto(transcripcion.trim());
+      onParsed(items, transcripcion);
+      if (items.length === 0) toast.warning("No detecté datos claros, probá reformular");
+      else toast.success(items.length > 1 ? `${items.length} items detectados` : "Datos extraídos");
       setStatus("Listo");
     } catch (err: any) {
       toast.error(err.message || "Error de IA");

@@ -3,24 +3,23 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { generateText } from "ai";
 import { z } from "zod";
 
-const VozSchema = z.object({
-  transcripcion: z.string().optional().default(""),
+const CelItemSchema = z.object({
   marca: z.string().optional().default(""),
   modelo: z.string().optional().default(""),
-  precio_compra: z.number().optional().default(0),
+  precio_compra: z.coerce.number().optional().default(0),
+  precio_venta: z.coerce.number().optional().default(0),
   problemas: z.string().optional().default(""),
   observaciones: z.string().optional().default(""),
 });
 
 const CATEGORIAS_REP = ["modulo","placa_carga","bateria","porta_sim","flex","camara","tapa","placa_main","otro"] as const;
-const RepuestoVozSchema = z.object({
-  transcripcion: z.string().optional().default(""),
+const RepuestoItemSchema = z.object({
   categoria: z.enum(CATEGORIAS_REP).optional().default("otro"),
   marca: z.string().optional().default(""),
   modelo_compatible: z.string().optional().default(""),
-  precio_compra: z.number().optional().default(0),
-  precio_venta: z.number().optional().default(0),
-  stock: z.number().int().optional().default(1),
+  precio_compra: z.coerce.number().optional().default(0),
+  precio_venta: z.coerce.number().optional().default(0),
+  stock: z.coerce.number().int().optional().default(1),
   observaciones: z.string().optional().default(""),
 });
 
@@ -44,6 +43,14 @@ function extractJSON(raw: string): unknown {
   return JSON.parse(cleaned);
 }
 
+function toItemsArray(raw: any): any[] {
+  if (!raw) return [];
+  if (Array.isArray(raw.items)) return raw.items;
+  if (Array.isArray(raw)) return raw;
+  // single object fallback (legacy shape)
+  return [raw];
+}
+
 export const interpretarVoz = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => VozInputSchema.parse(input))
@@ -53,7 +60,7 @@ export const interpretarVoz = createServerFn({ method: "POST" })
     const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
     const gateway = createLovableAiGatewayProvider(key);
     const instruction =
-      "Extraé datos de un celular usado a partir de voz o texto en español rioplatense. Los precios pueden venir como '200 mil', '200000', '200k', '1,5 millones'. Convertilo a número entero. Si falta un dato, devolvé string vacío o 0. Marcas comunes: Samsung, Apple/iPhone, Motorola, Xiaomi, Huawei, LG.\n\nRespondé SOLO con un objeto JSON válido con estas claves exactas: transcripcion (string), marca (string), modelo (string), precio_compra (number), problemas (string), observaciones (string). Sin texto adicional, sin markdown.";
+      "Extraé datos de UNO O MÁS celulares usados a partir de voz o texto en español rioplatense. Los precios pueden venir como '200 mil', '200000', '200k', '1,5 millones'. Convertilos a número entero. Marcas comunes: Samsung, Apple/iPhone, Motorola, Xiaomi, Huawei, LG.\n\nRespondé SOLO con JSON válido: { \"transcripcion\": string, \"items\": [ { \"marca\": string, \"modelo\": string, \"precio_compra\": number, \"precio_venta\": number, \"problemas\": string, \"observaciones\": string } ] }.\n\nSi el usuario menciona varias unidades del mismo modelo (ej: '2 A32'), creá N entradas duplicadas (cada celular es único). Si menciona varios modelos distintos, creá una entrada por modelo. Si falta un dato, usá string vacío o 0. Sin texto adicional, sin markdown.";
 
     const { text } = data.audioBase64
       ? await generateText({
@@ -82,10 +89,11 @@ export const interpretarVoz = createServerFn({ method: "POST" })
           prompt: data.texto,
         });
     try {
-      const parsed = extractJSON(text);
-      return VozSchema.parse(parsed);
+      const raw: any = extractJSON(text);
+      const items = toItemsArray(raw).map((it) => CelItemSchema.parse(it)).filter((it) => it.marca || it.modelo);
+      return { transcripcion: raw?.transcripcion ?? data.texto ?? "", items };
     } catch {
-      return { transcripcion: data.texto || text, marca: "", modelo: "", precio_compra: 0, problemas: "", observaciones: text };
+      return { transcripcion: data.texto || text, items: [] as Array<z.infer<typeof CelItemSchema>> };
     }
   });
 
@@ -98,7 +106,7 @@ export const interpretarVozRepuesto = createServerFn({ method: "POST" })
     const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
     const gateway = createLovableAiGatewayProvider(key);
     const instruction =
-      "Extraé datos de un REPUESTO de celular a partir de voz o texto en español rioplatense. Devolvé SOLO un JSON con las claves: transcripcion (string), categoria (uno de: modulo, placa_carga, bateria, porta_sim, flex, camara, tapa, placa_main, otro), marca (string), modelo_compatible (string), precio_compra (number), precio_venta (number), stock (number entero, default 1), observaciones (string).\n\nMapeo de categoría desde el habla coloquial: 'módulo'/'pantalla'/'display' => modulo; 'pin de carga'/'placa de carga'/'conector de carga' => placa_carga; 'batería'/'pila' => bateria; 'porta sim'/'bandeja sim'/'lector sim' => porta_sim; 'flex'/'flex de power'/'flex de volumen' => flex; 'cámara'/'lente' => camara; 'tapa'/'tapa trasera'/'tapa de batería' => tapa; 'placa main'/'placa madre'/'lógica'/'mother' => placa_main. Si no entra en ninguna, usá 'otro'.\n\nLos precios pueden venir como '15 mil', '15000', '15k'. Convertilos a entero. Si falta un dato, devolvé string vacío o 0. Sin texto adicional, sin markdown.";
+      "Extraé datos de UNO O MÁS REPUESTOS de celular a partir de voz o texto en español rioplatense. Devolvé SOLO JSON: { \"transcripcion\": string, \"items\": [ { \"categoria\": (modulo|placa_carga|bateria|porta_sim|flex|camara|tapa|placa_main|otro), \"marca\": string, \"modelo_compatible\": string, \"precio_compra\": number, \"precio_venta\": number, \"stock\": number, \"observaciones\": string } ] }.\n\nIMPORTANTE: si el usuario menciona varios repuestos distintos (ej: 'compré módulo de A11 y 2 de A32'), creá una entrada por cada combinación distinta de categoría+modelo. La cantidad va en 'stock' (ej: '2 de A32' => stock 2). Si solo dice 'un módulo' => stock 1.\n\nMapeo de categoría desde el habla coloquial: 'módulo'/'pantalla'/'display' => modulo; 'pin de carga'/'placa de carga'/'conector de carga' => placa_carga; 'batería'/'pila' => bateria; 'porta sim'/'bandeja sim'/'lector sim' => porta_sim; 'flex'/'flex de power'/'flex de volumen' => flex; 'cámara'/'lente' => camara; 'tapa'/'tapa trasera'/'tapa de batería' => tapa; 'placa main'/'placa madre'/'lógica'/'mother' => placa_main. Si no entra en ninguna, usá 'otro'.\n\nPrecios como '15 mil'/'15000'/'15k' => entero. Si falta un dato, string vacío o 0. Sin texto adicional, sin markdown.";
 
     const { text } = data.audioBase64
       ? await generateText({
@@ -120,10 +128,11 @@ export const interpretarVozRepuesto = createServerFn({ method: "POST" })
           prompt: data.texto,
         });
     try {
-      const parsed = extractJSON(text);
-      return RepuestoVozSchema.parse(parsed);
+      const raw: any = extractJSON(text);
+      const items = toItemsArray(raw).map((it) => RepuestoItemSchema.parse(it)).filter((it) => it.marca || it.modelo_compatible || it.categoria !== "otro");
+      return { transcripcion: raw?.transcripcion ?? data.texto ?? "", items };
     } catch {
-      return { transcripcion: data.texto || text, categoria: "otro" as const, marca: "", modelo_compatible: "", precio_compra: 0, precio_venta: 0, stock: 1, observaciones: text };
+      return { transcripcion: data.texto || text, items: [] as Array<z.infer<typeof RepuestoItemSchema>> };
     }
   });
 
