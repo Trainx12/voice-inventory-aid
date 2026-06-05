@@ -45,8 +45,8 @@ function NuevoPage() {
           templateName="celulares-plantilla.csv"
           template={CEL_CSV_TEMPLATE}
           disabled={bulkMut.isPending}
-          onParsed={(rows) =>
-            bulkMut.mutateAsync(
+          onParsed={async (rows) => {
+            await bulkMut.mutateAsync(
               rows.map((r) => ({
                 marca: r.marca,
                 modelo: r.modelo,
@@ -58,8 +58,8 @@ function NuevoPage() {
                 observaciones: r.observaciones || null,
                 fecha_compra: r.fecha_compra || new Date().toISOString().slice(0, 10),
               })),
-            )
-          }
+            );
+          }}
         />
       </div>
       <Tabs value={tab} onValueChange={setTab}>
